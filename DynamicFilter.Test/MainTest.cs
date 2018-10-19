@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using DynamicFilter.Main;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DynamicFilter.Test

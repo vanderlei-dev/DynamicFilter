@@ -1,4 +1,4 @@
-﻿namespace DynamicFilter
+﻿namespace DynamicFilter.Main
 {
     public enum FilterType
     {

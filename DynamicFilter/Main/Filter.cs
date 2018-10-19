@@ -4,12 +4,12 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 
-namespace DynamicFilter
+namespace DynamicFilter.Main
 {
     public class Filter
     {
-        public Dictionary<string, Tuple<object, FilterType>> Filters { get; private set; } = new Dictionary<string, Tuple<object, FilterType>>();
-                
+        public List<FilterItem> Filters { get; private set; } = new List<FilterItem>();
+
         public Filter()
         {
 
@@ -37,7 +37,7 @@ namespace DynamicFilter
 
         public bool Exists(string fieldName)
         {
-            return Filters.ContainsKey(fieldName);
+            return Filters.Exists(f => f.Field.Equals(fieldName));
         }
 
         public void Clear()
@@ -56,9 +56,9 @@ namespace DynamicFilter
 
             foreach (var item in Filters)
             {
-                var prop = properties.FirstOrDefault(p => p.Name.Equals(item.Key));
+                var prop = properties.FirstOrDefault(p => p.Name.Equals(item.Field));
                 if (prop != null)
-                    expressions.Add(CreateExpression<T>(prop, item.Value.Item1, item.Value.Item2));
+                    expressions.Add(CreateExpression<T>(prop, item.Type, item.Value));
             }
 
             return Compile(expressions.ToArray());
@@ -78,11 +78,11 @@ namespace DynamicFilter
 
         public object this[string fieldName, FilterType type = FilterType.Equal]
         {
-            get { return Filters[fieldName]; }
-            set { Filters[fieldName] = new Tuple<object, FilterType>(value, type); }
+            get { return Filters.FirstOrDefault(f => f.Field.Equals(fieldName)); }
+            set { Filters.Add(new FilterItem() { Field = fieldName, Type = type, Value = value }); }
         }
 
-        private static Expression<Func<T, bool>> CreateExpression<T>(PropertyInfo prop, object value, FilterType filterType = FilterType.Equal)
+        private static Expression<Func<T, bool>> CreateExpression<T>(PropertyInfo prop, FilterType filterType, object value)
         {
             var type = typeof(T);
             ParameterExpression parameter = Expression.Parameter(typeof(T), "obj");
@@ -108,7 +108,7 @@ namespace DynamicFilter
                     InnerLambda = Expression.Equal(left, right);
                     break;
                 case FilterType.LessThan:
-                    InnerLambda = Expression.LessThan(left, right);
+                    InnerLambda = Expression.LessThan(left, right);                    
                     break;
                 case FilterType.GreaterThan:
                     InnerLambda = Expression.GreaterThan(left, right);
