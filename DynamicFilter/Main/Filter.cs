@@ -8,7 +8,12 @@ namespace DynamicFilter.Main
 {
     public class Filter
     {
-        public List<FilterItem> Filters { get; private set; } = new List<FilterItem>();
+        private int _filterCount = 0;
+
+        public string FilterText { get; private set; }
+
+        public FilterGroup MainFilter { get; set; } = new FilterGroup();
+        public List<FilterGroup> AdditionalFilters { get; private set; } = new List<FilterGroup>();
 
         public Filter()
         {
@@ -20,11 +25,28 @@ namespace DynamicFilter.Main
             this[fieldName, type] = value;            
         }
 
-        public int Count { get { return Filters.Count; } }
+        public int Count { get { return MainFilter.Filters.Count; } }
 
         public Filter Add(string fieldName, FilterType type, object value)
         {
             this[fieldName, type] = value;
+            return this;
+        }
+
+        public Filter Or(string fieldName, FilterType type, object value)
+        {
+            _filterCount++;
+            var group = new FilterGroup() { Order = _filterCount };
+            group.Filters.Add(
+                new FilterItem()
+                {
+                    Field = fieldName,
+                    Type = type,
+                    Value = value
+                });
+
+            AdditionalFilters.Add(group);            
+            
             return this;
         }
 
@@ -37,12 +59,13 @@ namespace DynamicFilter.Main
 
         public bool Exists(string fieldName)
         {
-            return Filters.Exists(f => f.Field.Equals(fieldName));
+            return MainFilter.Filters.Exists(f => f.Field.Equals(fieldName));
         }
 
         public void Clear()
         {
-            Filters.Clear();
+            MainFilter.Filters.Clear();
+            AdditionalFilters.Clear();
         }
 
         public Func<T, bool> CreateFilter<T>()
@@ -54,17 +77,36 @@ namespace DynamicFilter.Main
 
             var expressions = new List<Expression<Func<T, bool>>>();
 
-            foreach (var item in Filters)
+            foreach (var item in MainFilter.Filters)
             {
                 var prop = properties.FirstOrDefault(p => p.Name.Equals(item.Field));
                 if (prop != null)
                     expressions.Add(CreateExpression<T>(prop, item.Type, item.Value));
             }
 
-            return Compile(expressions.ToArray());
+            var mainExpression = Join(expressions.ToArray());            
+
+            foreach (var item in AdditionalFilters)
+            {
+                var subExpressions = new List<Expression<Func<T, bool>>>();
+
+                foreach (var filter in item.Filters)
+                {
+                    var prop = properties.FirstOrDefault(p => p.Name.Equals(filter.Field));
+                    if (prop != null)
+                        subExpressions.Add(CreateExpression<T>(prop, filter.Type, filter.Value));
+                }
+
+                var subExpression = Join(subExpressions.ToArray());
+                mainExpression = mainExpression.Or(subExpression);
+            }
+
+            FilterText = mainExpression.ToString();
+
+            return mainExpression.Compile();
         }
 
-        public Func<T, bool> Compile<T>(Expression<Func<T, bool>>[] expressions)
+        private static Expression<Func<T, bool>> Join<T>(Expression<Func<T, bool>>[] expressions)
         {
             Expression<Func<T, bool>> condicoes = expressions[0];
 
@@ -73,13 +115,13 @@ namespace DynamicFilter.Main
                 condicoes = condicoes.And(expressions[i]);
             }
 
-            return condicoes.Compile();            
+            return condicoes;
         }
 
         public object this[string fieldName, FilterType type = FilterType.Equal]
         {
-            get { return Filters.FirstOrDefault(f => f.Field.Equals(fieldName)); }
-            set { Filters.Add(new FilterItem() { Field = fieldName, Type = type, Value = value }); }
+            get { return MainFilter.Filters.FirstOrDefault(f => f.Field.Equals(fieldName)); }
+            set { MainFilter.Filters.Add(new FilterItem() { Field = fieldName, Type = type, Value = value }); }
         }
 
         private static Expression<Func<T, bool>> CreateExpression<T>(PropertyInfo prop, FilterType filterType, object value)

@@ -82,6 +82,19 @@ namespace DynamicFilter.Test
             Assert.IsTrue(result.Count() == 1);
         }
 
+        [TestMethod]
+        public void TestOr()
+        {
+            //Description contais "person" and Id <= 3
+            Filter filter = new Filter();
+            filter.Add("Description", FilterType.Contains, "person");
+            filter.Or("Id", FilterType.Equal, 1);
+
+            var result = filter.CreateFilter<TestDomain>();
+
+            var result2 = _listDomainObjects.Where(result);
+        }
+
         private class TestDto
         {
             public int Id { get; set; }
