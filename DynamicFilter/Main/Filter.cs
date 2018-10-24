@@ -97,9 +97,7 @@ namespace DynamicFilter.Main
                 }                
             }
 
-            var mainExpression = Join(expressions.ToArray());            
-            //FilterText = mainExpression.ToString();
-
+            var mainExpression = Join(expressions.ToArray());                        
             return mainExpression.Compile();
         }
 

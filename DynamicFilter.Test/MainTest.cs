@@ -90,12 +90,9 @@ namespace DynamicFilter.Test
             filter.Add("Description", FilterType.Contains, "person").Or("Id", FilterType.LessThanOrEqual, 3);
             filter.Add("Description", FilterType.NotEqual, "number 1");
             filter.Or("Description", FilterType.Contains, "animal");
-
-            //filter.Or("Id", FilterType.Equal, 1);
-
-            var result = filter.CreateFilter<TestDomain>();
-
-            var result2 = _listDomainObjects.Where(result);
+                         
+            var result = _listDomainObjects.Where(filter.CreateFilter<TestDomain>());
+            Assert.IsTrue(result.Count() == 4);
         }
 
         private class TestDto
