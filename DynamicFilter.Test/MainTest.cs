@@ -33,7 +33,8 @@ namespace DynamicFilter.Test
         public void TestEqual()
         {
             //Filter TestDomain.Id = 3 - By name (faster)
-            Filter filter = new Filter(nameof(TestDto.Id), FilterType.Equal, 3);
+            Filter filter = new Filter();
+            filter.Add(nameof(TestDto.Id), FilterType.Equal, 3);
 
             //Transform the filterDto into a specified domain predicate
             var result = _listDomainObjects.Where(filter.CreateFilter<TestDomain>());
@@ -50,7 +51,7 @@ namespace DynamicFilter.Test
             filter.Clear();
 
             //Filter TestDomain.Id = 1 - By index (equal is the default filter type)
-            filter[nameof(TestDto.Id)] = 1;
+            filter.Add(nameof(TestDto.Id), FilterType.Equal, 1);
 
             result = _listDomainObjects.Where(filter.CreateFilter<TestDomain>());
             Assert.IsTrue(result.Single().Id == 1);
@@ -73,7 +74,7 @@ namespace DynamicFilter.Test
         [TestMethod]
         public void TestMultiple()
         {
-            //Description contais "person" and Id <= 3
+            //Description contains "person" and Id <= 3
             Filter filter = new Filter();
             filter.Add("Description", FilterType.Contains, "person");
             filter.Add("Id", FilterType.LessThanOrEqual, 3);
@@ -84,11 +85,13 @@ namespace DynamicFilter.Test
 
         [TestMethod]
         public void TestOr()
-        {
-            //Description contais "person" and Id <= 3
+        {            
             Filter filter = new Filter();
-            filter.Add("Description", FilterType.Contains, "person");
-            filter.Or("Id", FilterType.Equal, 1);
+            filter.Add("Description", FilterType.Contains, "person").Or("Id", FilterType.LessThanOrEqual, 3);
+            filter.Add("Description", FilterType.NotEqual, "number 1");
+            filter.Or("Description", FilterType.Contains, "animal");
+
+            //filter.Or("Id", FilterType.Equal, 1);
 
             var result = filter.CreateFilter<TestDomain>();
 
