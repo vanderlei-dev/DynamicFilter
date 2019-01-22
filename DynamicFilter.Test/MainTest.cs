@@ -84,6 +84,18 @@ namespace DynamicFilter.Test
         }
 
         [TestMethod]
+        public void TestSQL()
+        {
+            //Description contains "person" and Id <= 3
+            Filter filter = new Filter();
+            filter.Add("Description", FilterType.Contains, "person").Or("Id", FilterType.LessThanOrEqual, 3);
+            filter.Or("Value", FilterType.GreaterThan, 1);
+
+            var result = filter.CreateFilterSQL<TestDomain>();            
+        }
+
+
+        [TestMethod]
         public void TestOr()
         {            
             Filter filter = new Filter();
@@ -91,7 +103,8 @@ namespace DynamicFilter.Test
             filter.Add("Description", FilterType.NotEqual, "number 1");
             filter.Or("Description", FilterType.Contains, "animal");
                          
-            var result = _listDomainObjects.Where(filter.CreateFilter<TestDomain>());
+            var result = _listDomainObjects.Where(filter.CreateFilter<TestDomain>());            
+
             Assert.IsTrue(result.Count() == 4);
         }
 
@@ -99,6 +112,7 @@ namespace DynamicFilter.Test
         {
             public int Id { get; set; }
             public string Description { get; set; }
+            public decimal Value { get; set; }
 
             public TestDto(int id, string description)
             {
@@ -109,8 +123,15 @@ namespace DynamicFilter.Test
 
         private class TestDomain
         {
+            public TestDomain()
+            {
+
+            }
+
             public int Id { get; set; }
             public string Description { get; set; }
+
+            public decimal Value { get; set; }
 
             public TestDomain(int id, string description)
             {

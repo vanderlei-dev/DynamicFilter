@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text;
 
 namespace DynamicFilter.Main
 {
@@ -43,6 +44,8 @@ namespace DynamicFilter.Main
         {
             Filters.Clear();
         }
+
+        #region [ Filtro em forma de método ]
 
         public Func<T, bool> CreateFilter<T>()
         {
@@ -99,7 +102,7 @@ namespace DynamicFilter.Main
 
             var mainExpression = Join(expressions.ToArray());                        
             return mainExpression.Compile();
-        }
+        }        
 
         private static Expression<Func<T, bool>> Join<T>(Expression<Func<T, bool>>[] expressions)
         {
@@ -156,6 +159,103 @@ namespace DynamicFilter.Main
             }
 
             return InnerLambda;
+        }
+
+        #endregion
+
+        public (string sql, T value) CreateFilterSQL<T>()
+        {
+            T obj = Activator.CreateInstance<T>();
+
+            Type tipo = typeof(T);
+            var tabela = (tipo
+                            .GetCustomAttributes(false)
+                            .FirstOrDefault(attr => attr.GetType().Name == "TableAttribute") as dynamic)?.Name ?? tipo.Name;
+
+            var properties = tipo
+                            .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                            .Where(p => p.CanRead)
+                            .ToArray();
+
+            StringBuilder sb = new StringBuilder();  
+            sb.Append($"SELECT\t*\r\nFROM\t{tabela}\r\n");
+
+            for (int i = 0; i < Filters.Count; i++)
+            {
+                var item = Filters[i];
+
+                if (i == 0)
+                    sb.Append("WHERE\t");
+                else
+                    SetOperator(sb, item, false);
+
+                sb.Append("( ");
+
+                var prop = properties.FirstOrDefault(p => p.Name.Equals(item.Field));
+                sb.Append(ApplyFilter(prop, item));                
+                prop.SetValue(obj, Convert.ChangeType(item.Value, prop.PropertyType));
+
+                foreach (var subItem in item.Filters)
+                {
+                    SetOperator(sb, subItem, true);
+
+                    var subProp = properties.FirstOrDefault(p => p.Name.Equals(subItem.Field));
+                    sb.Append(ApplyFilter(subProp, subItem));
+                    subProp.SetValue(obj, Convert.ChangeType(subItem.Value, subProp.PropertyType));
+                }
+
+                sb.Append(" )");
+            }
+           
+            return (sb.ToString(), obj);
+        }
+
+        private static void SetOperator(StringBuilder sb, FilterItem item, bool subItem)
+        {
+            if (subItem)
+                sb.Append(" ");
+            else
+                sb.Append("\r\n");
+
+            switch (item.Operator)
+            {
+                case FilterOperator.And:
+                    sb.Append("AND");
+                    break;
+                case FilterOperator.Or:
+                    sb.Append("OR");
+                    break;
+                default:
+                    break;                                        
+            }
+
+            if (subItem)
+                sb.Append(" ");
+            else
+                sb.Append("\t");
+        }
+
+        private static string ApplyFilter(PropertyInfo prop, FilterItem filterItem)
+        {            
+            switch (filterItem.Type)
+            {
+                case FilterType.Contains:
+                    return $"{filterItem.Field} LIKE @{prop.Name}";                    
+                case FilterType.Equal:
+                    return $"{filterItem.Field} = @{prop.Name}";                    
+                case FilterType.LessThan:
+                    return $"{filterItem.Field} < @{prop.Name}";                    
+                case FilterType.GreaterThan:
+                    return $"{filterItem.Field} > @{prop.Name}";                    
+                case FilterType.GreaterThanOrEqual:
+                    return $"{filterItem.Field} >= @{prop.Name}";                    
+                case FilterType.LessThanOrEqual:
+                    return $"{filterItem.Field} <= @{prop.Name}";                    
+                case FilterType.NotEqual:
+                    return $"{filterItem.Field} <> @{prop.Name}";                    
+                default:
+                    throw new ArgumentException();
+            }            
         }
     }
 }
